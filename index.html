@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فنكي منكي — التسجيل الرقمي (عرض تجريبي)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#17093F; --violet:#7F31FF; --mint:#8DFE92; --bg:#F6F4FB; --card:#fff; --ink:#1d1730; --mute:#6b6585; --line:#e4dff2; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"IBM Plex Sans Arabic",Tahoma,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--navy); color:#fff; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  header b { font-size:18px; }
+  nav button { background:transparent; color:#fff; border:1px solid #ffffff40; border-radius:20px; padding:6px 12px; font:inherit; font-size:14px; cursor:pointer; }
+  nav button.on { background:var(--mint); color:var(--navy); border-color:var(--mint); font-weight:700; }
+  main { max-width:720px; margin:0 auto; padding:16px; }
+  main.wide { max-width:1100px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; }
+  h2 { margin:0 0 12px; font-size:18px; color:var(--navy); }
+  label { display:block; font-size:14px; color:var(--mute); margin:10px 0 4px; }
+  input, select, textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font:inherit; background:#fff; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .btn { background:var(--violet); color:#fff; border:0; border-radius:12px; padding:13px 18px; font:inherit; font-weight:700; cursor:pointer; width:100%; margin-top:14px; }
+  .btn.ghost { background:#fff; color:var(--violet); border:1px solid var(--violet); }
+  .btn.small { width:auto; padding:6px 12px; margin:0; font-size:13px; font-weight:600; }
+  .child { border:1px dashed var(--line); border-radius:12px; padding:10px; margin-top:10px; }
+  .waiver { max-height:180px; overflow:auto; background:#faf9fe; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; line-height:1.8; }
+  canvas { width:100%; height:160px; border:2px dashed var(--violet); border-radius:12px; background:#fff; touch-action:none; display:block; }
+  .check { display:flex; gap:8px; align-items:flex-start; margin-top:10px; font-size:14px; }
+  .check input { width:auto; margin-top:4px; }
+  .ok { text-align:center; }
+  .ok .big { font-size:54px; }
+  .code { font-size:28px; letter-spacing:4px; font-weight:700; color:var(--violet); }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .kpi .n { font-size:28px; font-weight:700; color:var(--navy); }
+  .kpi .t { font-size:13px; color:var(--mute); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:right; padding:9px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--mute); font-weight:600; }
+  .tag { font-size:12px; border-radius:10px; padding:2px 8px; background:#efe7ff; color:var(--violet); }
+  .tag.new { background:#e3ffe5; color:#1b7a2a; }
+  .tablewrap { overflow-x:auto; }
+  .modal { position:fixed; inset:0; background:#17093Fb0; display:none; align-items:center; justify-content:center; padding:16px; }
+  .modal.show { display:flex; }
+  .modal .card { max-width:520px; width:100%; max-height:90vh; overflow:auto; }
+  .modal img { width:100%; border:1px solid var(--line); border-radius:10px; }
+  .demo { font-size:12px; color:var(--mute); text-align:center; padding:10px; }
+  .hidden { display:none; }
+  @media (max-width:640px) { .kpis { grid-template-columns:1fr 1fr; } .row { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <b>🐵 فنكي منكي</b>
+  <nav>
+    <button data-v="register">تسجيل جديد</button>
+    <button data-v="return">زيارة متكررة</button>
+    <button data-v="dash">لوحة الإدارة</button>
+  </nav>
+</header>
+
+<!-- 1. New registration (what the parent sees after scanning the QR) -->
+<main id="register">
+  <div class="card">
+    <h2>أهلاً بكم 👋 سجّل طفلك في أقل من دقيقة</h2>
+    <label>الفرع</label>
+    <select id="branch"></select>
+    <div class="row">
+      <div><label>اسم ولي الأمر</label><input id="parent" placeholder="مثال: محمد أحمد"></div>
+      <div><label>رقم الجوال</label><input id="phone" type="tel" inputmode="numeric" placeholder="05xxxxxxxx"></div>
+    </div>
+    <div id="kids"></div>
+    <button class="btn ghost" id="addKid" type="button">+ إضافة طفل آخر</button>
+  </div>
+  <div class="card">
+    <h2>إقرار إخلاء المسؤولية</h2>
+    <div class="waiver" id="waiverText"></div>
+    <label class="check"><input type="checkbox" id="agree"> قرأت الإقرار وأوافق على جميع بنوده.</label>
+    <label>التوقيع</label>
+    <canvas id="sig"></canvas>
+    <button class="btn ghost small" id="clearSig" type="button" style="margin-top:8px">مسح التوقيع</button>
+    <button class="btn" id="submit" type="button">تأكيد التسجيل</button>
+  </div>
+</main>
+
+<!-- confirmation -->
+<main id="done" class="hidden">
+  <div class="card ok">
+    <div class="big">✅</div>
+    <h2>تم التسجيل بنجاح</h2>
+    <p>أظهر هذا الرمز لموظف الاستقبال</p>
+    <div class="code" id="doneCode"></div>
+    <p style="color:var(--mute);font-size:14px">في زيارتك القادمة: أدخل رقم جوالك فقط — بدون تعبئة أو توقيع من جديد.</p>
+    <button class="btn" data-v="register">تسجيل عائلة أخرى</button>
+  </div>
+</main>
+
+<!-- 2. Returning visit -->
+<main id="return" class="hidden">
+  <div class="card">
+    <h2>زيارة متكررة — خطوة واحدة</h2>
+    <label>رقم الجوال</label>
+    <input id="rPhone" type="tel" inputmode="numeric" placeholder="05xxxxxxxx">
+    <label>الفرع</label>
+    <select id="rBranch"></select>
+    <button class="btn" id="lookup" type="button">دخول</button>
+    <p id="rMsg" style="margin-top:12px"></p>
+  </div>
+</main>
+
+<!-- 3. Unified dashboard -->
+<main id="dash" class="hidden wide">
+  <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <h2 style="margin:0;flex:1">لوحة الإدارة الموحّدة — اليوم</h2>
+    <select id="dBranch" style="width:auto"></select>
+    <input id="dSearch" placeholder="بحث بالاسم أو الجوال" style="width:auto">
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="n" id="kVisits">0</div><div class="t">زيارات اليوم</div></div>
+    <div class="kpi"><div class="n" id="kKids">0</div><div class="t">أطفال مسجّلون</div></div>
+    <div class="kpi"><div class="n" id="kRet">0%</div><div class="t">عائلات متكررة</div></div>
+    <div class="kpi"><div class="n" id="kWaivers">0</div><div class="t">إقرارات موقّعة (الإجمالي)</div></div>
+  </div>
+  <div class="card tablewrap">
+    <table>
+      <thead><tr><th>الوقت</th><th>ولي الأمر</th><th>الأطفال</th><th>الفرع</th><th>النوع</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<div class="modal" id="modal"><div class="card" id="modalBody"></div></div>
+<div class="demo">عرض تجريبي من أوتمو OTMO · otmo.me — البيانات وهمية وتُحفظ على هذا الجهاز فقط</div>
+
+<script>
+const BRANCHES = ["عزيز مول","جدة بارك","هيفاء مول","العرب مول","الياسمين مول","رد سي مول","بارك أفنيو (الرياض)"];
+const WAIVER = `أقرّ أنا ولي أمر الطفل/الأطفال المذكورين بما يلي:
+١. أن الألعاب والأنشطة تنطوي على حركة بدنية قد ينتج عنها إصابات بسيطة، وأن مشاركة طفلي تتم بموافقتي.
+٢. الالتزام بتعليمات السلامة المعلنة وتعليمات المشرفين، وارتداء الجوارب المخصصة داخل منطقة اللعب.
+٣. بقاء مرافق بالغ مع الأطفال دون سن (٤) سنوات طوال مدة الزيارة.
+٤. الإفصاح عن أي حالة صحية أو حساسية لدى الطفل قد تؤثر على مشاركته.
+٥. الموافقة على حفظ بيانات التسجيل وهذا الإقرار إلكترونياً لغرض التشغيل والسلامة، وفق نظام حماية البيانات الشخصية.
+٦. إخلاء مسؤولية المركز عن الإصابات الناتجة عن مخالفة التعليمات، دون الإخلال بمسؤولية المركز عن الإهمال.
+(نص تجريبي — الصياغة النهائية يعتمدها المستشار القانوني للعميل)`;
+
+// storage — try/catch so the demo still runs in private mode
+const load = () => { try { return JSON.parse(localStorage.getItem("fm_demo")) || null; } catch { return null; } };
+// sample data is rebuilt on every load relative to "now"; only the demo's own entries are saved
+const save = () => { try { localStorage.setItem("fm_demo", JSON.stringify({ families:db.families.slice(SEEDED), visits:db.visits.filter(v => !v.seed) })); } catch {} };
+let db = seed(); const SEEDED = db.families.length;
+const mine = load(); if (mine) { db.families.push(...mine.families); db.visits.push(...mine.visits); }
+
+function seed() {
+  const names = ["سارة العتيبي","خالد الزهراني","نورة القحطاني","عبدالله الغامدي","ريم الحربي","فهد الشهري","هند المالكي","ماجد السلمي","لمى الدوسري","تركي العمري","أمل الشمري","سعود الجهني"];
+  const kids = ["جود","يوسف","لين","عمر","تالا","سلمان","ركان","ليان","فيصل","دانة","مشاري","جوري"];
+  const families = names.map((n,i) => ({ id:"F"+(1000+i), parent:n, phone:"05"+String(51234567+i*7919).slice(0,8),
+    kids:[{name:kids[i], dob:"201"+(6+i%4)+"-0"+(1+i%9)+"-15", notes:i%5==0?"حساسية من الفول السوداني":""}],
+    signedAt:Date.now()-86400000*(3+i), sig:null }));
+  const visits = [];
+  for (let i=0;i<26;i++) visits.push({ fam:families[i%names.length].id, branch:BRANCHES[i%BRANCHES.length],
+    at:Date.now()-(i+1)*11*60000, returning:i<14, seed:true });
+  return { families, visits };
+}
+
+// views
+const views = ["register","done","return","dash"];
+function show(v) {
+  views.forEach(x => document.getElementById(x).classList.toggle("hidden", x!==v));
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.v===v));
+  if (v==="dash") renderDash();
+  if (v==="register") { resetForm(); setTimeout(sizeCanvas, 0); }
+  location.hash = v;
+}
+document.querySelectorAll("[data-v]").forEach(b => b.onclick = () => show(b.dataset.v));
+
+// branch selects
+for (const id of ["branch","rBranch"]) document.getElementById(id).innerHTML = BRANCHES.map(b=>`<option>${b}</option>`).join("");
+document.getElementById("dBranch").innerHTML = `<option value="">كل الفروع</option>` + BRANCHES.map(b=>`<option>${b}</option>`).join("");
+document.getElementById("waiverText").innerText = WAIVER;
+
+// kids
+function addKid() {
+  const d = document.createElement("div"); d.className = "child";
+  d.innerHTML = `<div class="row"><div><label>اسم الطفل</label><input class="kName"></div>
+    <div><label>تاريخ الميلاد</label><input class="kDob" type="date"></div></div>
+    <label>ملاحظات صحية / حساسية (اختياري)</label><input class="kNotes">`;
+  document.getElementById("kids").appendChild(d);
+}
+document.getElementById("addKid").onclick = addKid;
+
+// signature pad
+const cv = document.getElementById("sig"), ctx = cv.getContext("2d"); let drawing = false, signed = false;
+function sizeCanvas() { const r = cv.getBoundingClientRect(); if (!r.width) return; cv.width = r.width*2; cv.height = r.height*2;
+  ctx.scale(2,2); ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.strokeStyle = "#17093F"; signed = false; }
+const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; };
+cv.onpointerdown = e => { drawing = true; cv.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.moveTo(...pos(e)); };
+cv.onpointermove = e => { if (!drawing) return; ctx.lineTo(...pos(e)); ctx.stroke(); signed = true; };
+cv.onpointerup = () => drawing = false;
+document.getElementById("clearSig").onclick = sizeCanvas;
+
+function resetForm() {
+  ["parent","phone"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("kids").innerHTML = ""; addKid();
+  document.getElementById("agree").checked = false;
+}
+
+const phoneOk = p => /^05\d{8}$/.test(p);
+document.getElementById("submit").onclick = () => {
+  const parent = document.getElementById("parent").value.trim(), phone = document.getElementById("phone").value.trim();
+  const kids = [...document.querySelectorAll(".child")].map(c => ({ name:c.querySelector(".kName").value.trim(),
+    dob:c.querySelector(".kDob").value, notes:c.querySelector(".kNotes").value.trim() })).filter(k => k.name);
+  if (!parent || !phoneOk(phone)) return alert("أدخل اسم ولي الأمر ورقم جوال صحيح (05xxxxxxxx)");
+  if (!kids.length) return alert("أضف اسم طفل واحد على الأقل");
+  if (!document.getElementById("agree").checked) return alert("يجب الموافقة على الإقرار");
+  if (!signed) return alert("الرجاء التوقيع في المربع");
+  let fam = db.families.find(f => f.phone === phone);
+  const rec = { parent, phone, kids, signedAt:Date.now(), sig:cv.toDataURL("image/png") };
+  if (fam) Object.assign(fam, rec); else db.families.push(fam = { id:"F"+(1000+db.families.length), ...rec });
+  db.visits.push({ fam:fam.id, branch:document.getElementById("branch").value, at:Date.now(), returning:false });
+  save();
+  document.getElementById("doneCode").textContent = fam.id;
+  show("done");
+};
+
+document.getElementById("lookup").onclick = () => {
+  const phone = document.getElementById("rPhone").value.trim(), msg = document.getElementById("rMsg");
+  const fam = db.families.find(f => f.phone === phone);
+  if (!fam) { msg.innerHTML = `لا يوجد تسجيل بهذا الرقم. <a href="#" onclick="show('register');return false">سجّل الآن</a>`; return; }
+  db.visits.push({ fam:fam.id, branch:document.getElementById("rBranch").value, at:Date.now(), returning:true }); save();
+  msg.innerHTML = `✅ أهلاً ${fam.parent} — تم تسجيل دخول: <b>${fam.kids.map(k=>k.name).join("، ")}</b><br>
+    <span style="color:var(--mute);font-size:13px">الإقرار الموقّع بتاريخ ${fmt(fam.signedAt)} ما زال سارياً</span>`;
+};
+
+// dashboard
+const fmt = t => new Date(t).toLocaleString("ar-SA-u-ca-gregory", { dateStyle:"medium", timeStyle:"short" });
+const time = t => new Date(t).toLocaleTimeString("ar-SA", { hour:"2-digit", minute:"2-digit" });
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+document.getElementById("dBranch").onchange = renderDash;
+document.getElementById("dSearch").oninput = renderDash;
+
+function renderDash() {
+  const br = document.getElementById("dBranch").value, q = document.getElementById("dSearch").value.trim();
+  const start = new Date(); start.setHours(0,0,0,0);
+  const famById = Object.fromEntries(db.families.map(f => [f.id, f]));
+  let vs = db.visits.filter(v => v.at >= start && (!br || v.branch === br));
+  if (q) vs = vs.filter(v => { const f = famById[v.fam]; return f.parent.includes(q) || f.phone.includes(q) || f.kids.some(k => k.name.includes(q)); });
+  vs.sort((a,b) => b.at - a.at);
+  document.getElementById("kVisits").textContent = vs.length;
+  document.getElementById("kKids").textContent = vs.reduce((n,v) => n + famById[v.fam].kids.length, 0);
+  document.getElementById("kRet").textContent = vs.length ? Math.round(100*vs.filter(v=>v.returning).length/vs.length)+"%" : "0%";
+  document.getElementById("kWaivers").textContent = db.families.length;
+  document.getElementById("rows").innerHTML = vs.map(v => { const f = famById[v.fam]; return `<tr>
+    <td>${time(v.at)}</td><td>${esc(f.parent)}<br><small style="color:var(--mute)">${f.phone}</small></td>
+    <td>${f.kids.map(k=>esc(k.name)+(k.notes?" ⚠️":"")).join("، ")}</td><td>${v.branch}</td>
+    <td><span class="tag ${v.returning?"":"new"}">${v.returning?"متكررة":"جديدة"}</span></td>
+    <td><button class="btn small" onclick="openWaiver('${f.id}')">الإقرار</button></td></tr>`; }).join("")
+    || `<tr><td colspan="6" style="text-align:center;color:var(--mute)">لا توجد زيارات</td></tr>`;
+}
+
+function openWaiver(id) {
+  const f = db.families.find(x => x.id === id);
+  document.getElementById("modalBody").innerHTML = `<h2>إقرار إخلاء المسؤولية — ${esc(f.parent)}</h2>
+    <p style="font-size:14px">📱 ${f.phone} · رقم العائلة ${f.id}<br>🕒 وُقّع إلكترونياً: <b>${fmt(f.signedAt)}</b></p>
+    <p style="font-size:14px">${f.kids.map(k => `• ${esc(k.name)}${k.dob?" ("+k.dob+")":""}${k.notes?" — ⚠️ "+esc(k.notes):""}`).join("<br>")}</p>
+    <div class="waiver">${esc(WAIVER).replace(/\n/g,"<br>")}</div>
+    <label>التوقيع</label>${f.sig ? `<img src="${f.sig}" alt="التوقيع">` : `<p style="color:var(--mute)">(توقيع محفوظ — بيانات تجريبية)</p>`}
+    <button class="btn" onclick="window.print()">طباعة / حفظ PDF</button>
+    <button class="btn ghost" onclick="document.getElementById('modal').classList.remove('show')">إغلاق</button>`;
+  document.getElementById("modal").classList.add("show");
+}
+document.getElementById("modal").onclick = e => { if (e.target.id === "modal") e.target.classList.remove("show"); };
+window.addEventListener("resize", () => { if (!signed) sizeCanvas(); });
+
+show(views.includes(location.hash.slice(1)) ? location.hash.slice(1) : "register");
+</script>
+</body>
+</html>
