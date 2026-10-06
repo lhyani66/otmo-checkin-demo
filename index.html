@@ -29,6 +29,10 @@
   canvas { width:100%; height:160px; border:2px dashed var(--violet); border-radius:12px; background:#fff; touch-action:none; display:block; }
   .check { display:flex; gap:8px; align-items:flex-start; margin-top:10px; font-size:14px; }
   .check input { width:auto; margin-top:4px; }
+  .child .top { display:flex; justify-content:space-between; align-items:center; }
+  .child .top .check { margin:0; font-weight:600; color:var(--ink); }
+  .child.off { opacity:.5; }
+  .x { background:none; border:0; color:#c0392b; font:inherit; cursor:pointer; }
   .ok { text-align:center; }
   .ok .big { font-size:54px; }
   .code { font-size:28px; letter-spacing:4px; font-weight:700; color:var(--violet); }
@@ -77,7 +81,7 @@
   </div>
   <div class="card">
     <h2>إقرار إخلاء المسؤولية</h2>
-    <div class="waiver" id="waiverText"></div>
+    <div class="waiver"></div>
     <label class="check"><input type="checkbox" id="agree"> قرأت الإقرار وأوافق على جميع بنوده.</label>
     <label>التوقيع</label>
     <canvas id="sig"></canvas>
@@ -106,8 +110,26 @@
     <input id="rPhone" type="tel" inputmode="numeric" placeholder="05xxxxxxxx">
     <label>الفرع</label>
     <select id="rBranch"></select>
-    <button class="btn" id="lookup" type="button">دخول</button>
+    <button class="btn" id="lookup" type="button">متابعة</button>
     <p id="rMsg" style="margin-top:12px"></p>
+  </div>
+  <div id="rFamily" class="hidden">
+    <div class="card">
+      <h2 id="rHello"></h2>
+      <p style="color:var(--mute);font-size:14px;margin:0">حدّد من سيحضر اليوم، وعدّل البيانات إن لزم.</p>
+      <div id="rKids"></div>
+      <button class="btn ghost" id="rAddKid" type="button">+ إضافة طفل جديد</button>
+    </div>
+    <div class="card hidden" id="rWaiver">
+      <h2>إقرار للطفل الجديد</h2>
+      <p style="font-size:14px;color:var(--mute);margin-top:0">إضافة طفل جديد تتطلب توقيع الإقرار مرة أخرى.</p>
+      <div class="waiver"></div>
+      <label class="check"><input type="checkbox" id="rAgree"> قرأت الإقرار وأوافق على جميع بنوده.</label>
+      <label>التوقيع</label>
+      <canvas id="rSig"></canvas>
+      <button class="btn ghost small" id="rClearSig" type="button" style="margin-top:8px">مسح التوقيع</button>
+    </div>
+    <button class="btn" id="checkin" type="button">تأكيد الدخول</button>
   </div>
 </main>
 
@@ -149,9 +171,11 @@ const WAIVER = `أقرّ أنا ولي أمر الطفل/الأطفال المذ
 // storage — try/catch so the demo still runs in private mode
 const load = () => { try { return JSON.parse(localStorage.getItem("fm_demo")) || null; } catch { return null; } };
 // sample data is rebuilt on every load relative to "now"; only the demo's own entries are saved
-const save = () => { try { localStorage.setItem("fm_demo", JSON.stringify({ families:db.families.slice(SEEDED), visits:db.visits.filter(v => !v.seed) })); } catch {} };
+const save = () => { try { localStorage.setItem("fm_demo", JSON.stringify({ families:db.families.filter((f,i) => i>=SEEDED || f.edited), visits:db.visits.filter(v => !v.seed) })); } catch {} };
 let db = seed(); const SEEDED = db.families.length;
-const mine = load(); if (mine) { db.families.push(...mine.families); db.visits.push(...mine.visits); }
+const mine = load();
+if (mine) { for (const f of mine.families) { const i = db.families.findIndex(x => x.id === f.id); i >= 0 ? db.families[i] = f : db.families.push(f); }
+  db.visits.push(...mine.visits); }
 
 function seed() {
   const names = ["سارة العتيبي","خالد الزهراني","نورة القحطاني","عبدالله الغامدي","ريم الحربي","فهد الشهري","هند المالكي","ماجد السلمي","لمى الدوسري","تركي العمري","أمل الشمري","سعود الجهني"];
@@ -179,7 +203,7 @@ document.querySelectorAll("[data-v]").forEach(b => b.onclick = () => show(b.data
 // branch selects
 for (const id of ["branch","rBranch"]) document.getElementById(id).innerHTML = BRANCHES.map(b=>`<option>${b}</option>`).join("");
 document.getElementById("dBranch").innerHTML = `<option value="">كل الفروع</option>` + BRANCHES.map(b=>`<option>${b}</option>`).join("");
-document.getElementById("waiverText").innerText = WAIVER;
+document.querySelectorAll(".waiver").forEach(w => w.innerText = WAIVER);
 
 // kids
 function addKid() {
@@ -192,14 +216,22 @@ function addKid() {
 document.getElementById("addKid").onclick = addKid;
 
 // signature pad
-const cv = document.getElementById("sig"), ctx = cv.getContext("2d"); let drawing = false, signed = false;
-function sizeCanvas() { const r = cv.getBoundingClientRect(); if (!r.width) return; cv.width = r.width*2; cv.height = r.height*2;
-  ctx.scale(2,2); ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.strokeStyle = "#17093F"; signed = false; }
-const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; };
-cv.onpointerdown = e => { drawing = true; cv.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.moveTo(...pos(e)); };
-cv.onpointermove = e => { if (!drawing) return; ctx.lineTo(...pos(e)); ctx.stroke(); signed = true; };
-cv.onpointerup = () => drawing = false;
-document.getElementById("clearSig").onclick = sizeCanvas;
+function makePad(cv) {
+  const ctx = cv.getContext("2d"), pad = { signed:false };
+  pad.reset = () => { const r = cv.getBoundingClientRect(); pad.signed = false; if (!r.width) return; cv.width = r.width*2; cv.height = r.height*2;
+    ctx.scale(2,2); ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.strokeStyle = "#17093F"; };
+  pad.data = () => cv.toDataURL("image/png");
+  let drawing = false;
+  const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; };
+  cv.onpointerdown = e => { drawing = true; cv.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.moveTo(...pos(e)); };
+  cv.onpointermove = e => { if (!drawing) return; ctx.lineTo(...pos(e)); ctx.stroke(); pad.signed = true; };
+  cv.onpointerup = () => drawing = false;
+  return pad;
+}
+const pad = makePad(document.getElementById("sig")), rPad = makePad(document.getElementById("rSig"));
+const sizeCanvas = pad.reset;
+document.getElementById("clearSig").onclick = pad.reset;
+document.getElementById("rClearSig").onclick = rPad.reset;
 
 function resetForm() {
   ["parent","phone"].forEach(id => document.getElementById(id).value = "");
@@ -215,9 +247,9 @@ document.getElementById("submit").onclick = () => {
   if (!parent || !phoneOk(phone)) return alert("أدخل اسم ولي الأمر ورقم جوال صحيح (05xxxxxxxx)");
   if (!kids.length) return alert("أضف اسم طفل واحد على الأقل");
   if (!document.getElementById("agree").checked) return alert("يجب الموافقة على الإقرار");
-  if (!signed) return alert("الرجاء التوقيع في المربع");
+  if (!pad.signed) return alert("الرجاء التوقيع في المربع");
   let fam = db.families.find(f => f.phone === phone);
-  const rec = { parent, phone, kids, signedAt:Date.now(), sig:cv.toDataURL("image/png") };
+  const rec = { parent, phone, kids, signedAt:Date.now(), sig:pad.data() };
   if (fam) Object.assign(fam, rec); else db.families.push(fam = { id:"F"+(1000+db.families.length), ...rec });
   db.visits.push({ fam:fam.id, branch:document.getElementById("branch").value, at:Date.now(), returning:false });
   save();
@@ -225,13 +257,53 @@ document.getElementById("submit").onclick = () => {
   show("done");
 };
 
+let rFam = null;
+function kidRow(k, isNew) {
+  const d = document.createElement("div"); d.className = "child"; if (isNew) d.dataset.new = 1;
+  d.innerHTML = `<div class="top"><label class="check"><input type="checkbox" class="kIn" checked> يحضر اليوم</label>
+      ${isNew ? '<button type="button" class="x">✕ حذف</button>' : '<span class="tag">مسجّل</span>'}</div>
+    <div class="row"><div><label>اسم الطفل</label><input class="kName"></div>
+    <div><label>تاريخ الميلاد</label><input class="kDob" type="date"></div></div>
+    <label>ملاحظات صحية / حساسية (اختياري)</label><input class="kNotes">`;
+  d.querySelector(".kName").value = k.name || ""; d.querySelector(".kDob").value = k.dob || ""; d.querySelector(".kNotes").value = k.notes || "";
+  d.querySelector(".kIn").onchange = e => d.classList.toggle("off", !e.target.checked);
+  const x = d.querySelector(".x"); if (x) x.onclick = () => { d.remove(); syncWaiver(); };
+  document.getElementById("rKids").appendChild(d);
+}
+// a child not covered by the signed waiver needs a fresh signature
+function syncWaiver() {
+  const need = !!document.querySelector("#rKids .child[data-new]");
+  const w = document.getElementById("rWaiver"), was = !w.classList.contains("hidden");
+  w.classList.toggle("hidden", !need);
+  if (need && !was) { document.getElementById("rAgree").checked = false; setTimeout(rPad.reset, 0); }
+}
+document.getElementById("rAddKid").onclick = () => { kidRow({}, true); syncWaiver(); };
+
 document.getElementById("lookup").onclick = () => {
   const phone = document.getElementById("rPhone").value.trim(), msg = document.getElementById("rMsg");
-  const fam = db.families.find(f => f.phone === phone);
-  if (!fam) { msg.innerHTML = `لا يوجد تسجيل بهذا الرقم. <a href="#" onclick="show('register');return false">سجّل الآن</a>`; return; }
-  db.visits.push({ fam:fam.id, branch:document.getElementById("rBranch").value, at:Date.now(), returning:true }); save();
-  msg.innerHTML = `✅ أهلاً ${fam.parent} — تم تسجيل دخول: <b>${fam.kids.map(k=>k.name).join("، ")}</b><br>
-    <span style="color:var(--mute);font-size:13px">الإقرار الموقّع بتاريخ ${fmt(fam.signedAt)} ما زال سارياً</span>`;
+  rFam = db.families.find(f => f.phone === phone);
+  document.getElementById("rFamily").classList.toggle("hidden", !rFam);
+  if (!rFam) { msg.innerHTML = `لا يوجد تسجيل بهذا الرقم. <a href="#" onclick="show('register');return false">سجّل الآن</a>`; return; }
+  msg.innerHTML = "";
+  document.getElementById("rHello").textContent = `أهلاً ${rFam.parent} 👋`;
+  document.getElementById("rKids").innerHTML = ""; rFam.kids.forEach(k => kidRow(k, false)); syncWaiver();
+};
+
+document.getElementById("checkin").onclick = () => {
+  const rows = [...document.querySelectorAll("#rKids .child")].map(c => ({ isNew:!!c.dataset.new, in:c.querySelector(".kIn").checked,
+    k:{ name:c.querySelector(".kName").value.trim(), dob:c.querySelector(".kDob").value, notes:c.querySelector(".kNotes").value.trim() } }));
+  if (rows.some(r => !r.k.name)) return alert("اكتب اسم كل طفل، أو احذف الطفل الجديد الفارغ");
+  if (!rows.some(r => r.in)) return alert("حدّد طفلاً واحداً على الأقل يحضر اليوم");
+  const added = rows.some(r => r.isNew);
+  if (added && !document.getElementById("rAgree").checked) return alert("يجب الموافقة على الإقرار للطفل الجديد");
+  if (added && !rPad.signed) return alert("الرجاء التوقيع في المربع");
+  rFam.kids = rows.map(r => r.k); rFam.edited = true;
+  if (added) { rFam.signedAt = Date.now(); rFam.sig = rPad.data(); }
+  const today = rows.filter(r => r.in).map(r => r.k.name);
+  db.visits.push({ fam:rFam.id, branch:document.getElementById("rBranch").value, at:Date.now(), returning:true, kids:today }); save();
+  document.getElementById("rFamily").classList.add("hidden");
+  document.getElementById("rMsg").innerHTML = `✅ تم تسجيل الدخول: <b>${today.map(esc).join("، ")}</b><br>
+    <span style="color:var(--mute);font-size:13px">${added ? "تم توقيع إقرار جديد الآن" : "الإقرار الموقّع بتاريخ " + fmt(rFam.signedAt) + " ما زال سارياً"}</span>`;
 };
 
 // dashboard
@@ -249,12 +321,12 @@ function renderDash() {
   if (q) vs = vs.filter(v => { const f = famById[v.fam]; return f.parent.includes(q) || f.phone.includes(q) || f.kids.some(k => k.name.includes(q)); });
   vs.sort((a,b) => b.at - a.at);
   document.getElementById("kVisits").textContent = vs.length;
-  document.getElementById("kKids").textContent = vs.reduce((n,v) => n + famById[v.fam].kids.length, 0);
+  document.getElementById("kKids").textContent = vs.reduce((n,v) => n + (v.kids || famById[v.fam].kids.map(k=>k.name)).length, 0);
   document.getElementById("kRet").textContent = vs.length ? Math.round(100*vs.filter(v=>v.returning).length/vs.length)+"%" : "0%";
   document.getElementById("kWaivers").textContent = db.families.length;
   document.getElementById("rows").innerHTML = vs.map(v => { const f = famById[v.fam]; return `<tr>
     <td>${time(v.at)}</td><td>${esc(f.parent)}<br><small style="color:var(--mute)">${f.phone}</small></td>
-    <td>${f.kids.map(k=>esc(k.name)+(k.notes?" ⚠️":"")).join("، ")}</td><td>${v.branch}</td>
+    <td>${(v.kids ? f.kids.filter(k => v.kids.includes(k.name)) : f.kids).map(k=>esc(k.name)+(k.notes?" ⚠️":"")).join("، ")}</td><td>${v.branch}</td>
     <td><span class="tag ${v.returning?"":"new"}">${v.returning?"متكررة":"جديدة"}</span></td>
     <td><button class="btn small" onclick="openWaiver('${f.id}')">الإقرار</button></td></tr>`; }).join("")
     || `<tr><td colspan="6" style="text-align:center;color:var(--mute)">لا توجد زيارات</td></tr>`;
@@ -272,7 +344,7 @@ function openWaiver(id) {
   document.getElementById("modal").classList.add("show");
 }
 document.getElementById("modal").onclick = e => { if (e.target.id === "modal") e.target.classList.remove("show"); };
-window.addEventListener("resize", () => { if (!signed) sizeCanvas(); });
+window.addEventListener("resize", () => { if (!pad.signed) pad.reset(); if (!rPad.signed) rPad.reset(); });
 
 show(views.includes(location.hash.slice(1)) ? location.hash.slice(1) : "register");
 </script>
