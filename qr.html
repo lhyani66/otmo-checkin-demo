@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>رمز التسجيل — فنكي منكي</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+         font-family:Tahoma,sans-serif; background:#17093F; color:#fff; text-align:center; padding:16px; }
+  #qr { background:#fff; padding:18px; border-radius:18px; }
+  h1 { margin:0; font-size:26px; } p { margin:0; color:#8DFE92; }
+</style>
+</head>
+<body>
+  <h1>🐵 امسح الرمز لتسجيل طفلك</h1>
+  <div id="qr"></div>
+  <p>التسجيل وتوقيع الإقرار من جوالك — أقل من دقيقة</p>
+  <small style="opacity:.6">نسخة تجريبية من أوتمو OTMO</small>
+  <script>
+    // points at index.html next to this page, so it works wherever the folder is hosted
+    new QRCode(document.getElementById("qr"), { text: new URL("index.html#register", location.href).href, width: 260, height: 260 });
+  </script>
+</body>
+</html>
